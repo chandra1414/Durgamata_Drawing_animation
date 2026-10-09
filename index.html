@@ -5,11 +5,21 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Durga Drawing Animation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,600;1,700&display=swap" rel="stylesheet">
 
   <style>
     body {
       margin: 0;
-      padding: 25px;
+      box-sizing: border-box;
+      display: grid;
+      grid-template-rows: auto auto minmax(0, 1fr) auto auto auto auto;
+      justify-items: center;
+      height: 100vh;
+      height: 100dvh;
+      overflow: hidden;
+      padding: 10px;
       text-align: center;
       font-family: Arial, sans-serif;
       background: #fff8ed;
@@ -17,15 +27,16 @@
     }
 
     h1 {
-      margin-bottom: 18px;
+      margin: 0;
     }
 
     canvas {
       display: block;
-      width: 70%;
-      max-width: 600px;
+      width: auto;
       height: auto;
-      margin: 20px auto;
+      max-width: min(90vw, 600px);
+      max-height: 100%;
+      margin: 4px auto;
       border: 2px solid #d6a45d;
       background: #090909;
     }
@@ -40,15 +51,58 @@
       cursor: pointer;
     }
 
+    button:disabled {
+      cursor: wait;
+      opacity: 0.65;
+    }
+
+    .social-links {
+      display: flex;
+      justify-content: center;
+      gap: 14px;
+      margin: 4px auto 0;
+    }
+
+    audio {
+      display: block;
+      width: min(280px, 90vw);
+      height: 40px;
+      margin: 4px auto;
+    }
+
+    .social-link {
+      display: grid;
+      width: 42px;
+      aspect-ratio: 1;
+      place-items: center;
+      border: 1px solid #d6a45d;
+      border-radius: 50%;
+      background: white;
+    }
+
+    .social-link img {
+      display: block;
+      width: 22px;
+      height: 22px;
+    }
+
+    .social-link:focus-visible {
+      outline: 3px solid #672525;
+      outline-offset: 3px;
+    }
+
     #message {
       color: #672525;
+      margin: 4px 0;
     }
 
     .credit {
-      margin: 12px 0 8px;
+      margin: 4px 0;
       color: #672525;
-      font-size: 14px;
-      font-weight: 600;
+      font-family: "Cormorant Garamond", Georgia, serif;
+      font-size: 18px;
+      font-style: italic;
+      font-weight: 700;
     }
   </style>
 </head>
@@ -59,7 +113,24 @@
 
   <canvas id="drawingCanvas"></canvas>
   <p class="credit">Designed by Bhuvan</p>
-  <button onclick="startDrawing()">Draw Again</button>
+  <button id="drawButton" onclick="startDrawingWithMusic()" disabled>Preparing drawing...</button>
+  <audio id="durgaSong" controls autoplay loop preload="auto" aria-label="Durga song">
+    <source src="durga_song.mp3" type="audio/mpeg">
+    Your browser does not support audio playback.
+  </audio>
+  <nav class="social-links" aria-label="Bhuvan's social profiles">
+    <a class="social-link" href="https://www.linkedin.com/in/bhuvan2004/?isSelfProfile=true" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn" title="LinkedIn">
+      <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+        <path fill="#0A66C2" d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.35V9h3.414v1.561h.049c.476-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.063 2.064 2.064 0 1 1 2.063 2.063zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+      </svg>
+    </a>
+    <a class="social-link" href="https://www.instagram.com/eswar__2004/" target="_blank" rel="noopener noreferrer" aria-label="Instagram" title="Instagram">
+      <img src="https://cdn.simpleicons.org/instagram/E4405F" alt="">
+    </a>
+    <a class="social-link" href="https://github.com/chandra1414" target="_blank" rel="noopener noreferrer" aria-label="GitHub" title="GitHub">
+      <img src="https://cdn.simpleicons.org/github/181717" alt="">
+    </a>
+  </nav>
 
   <img id="sourceImage" src="durga.jpg" hidden>
 
@@ -70,11 +141,21 @@
     const ctx = canvas.getContext("2d");
     const img = document.getElementById("sourceImage");
     const message = document.getElementById("message");
+    const song = document.getElementById("durgaSong");
 
     let drawingLines = [];
     let lineIndex = 0;
     let pointIndex = 1;
     let animationStarted = false;
+    let autoplayBlocked = false;
+
+    song.play().catch(() => {
+      autoplayBlocked = true;
+      if (!document.getElementById("drawButton").disabled) {
+        document.getElementById("drawButton").textContent = "Enable Music";
+        message.textContent = "Autoplay was blocked. Tap Enable Music to start the song.";
+      }
+    });
 
     // Wait until OpenCV.js is ready
     async function waitForOpenCV() {
@@ -150,6 +231,12 @@
           return topA - topB;
         });
 
+        const drawButton = document.getElementById("drawButton");
+        drawButton.disabled = false;
+        drawButton.textContent = autoplayBlocked ? "Enable Music" : "Draw Again + Music";
+        if (autoplayBlocked) {
+          message.textContent = "Autoplay was blocked. Tap Enable Music to start the song.";
+        }
         startDrawing();
       } catch (error) {
         message.textContent =
@@ -166,7 +253,7 @@
     };
 
     function startDrawing() {
-      if (drawingLines.length === 0) return;
+      if (drawingLines.length === 0 || animationStarted) return;
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.strokeStyle = "#f4c95d";
@@ -180,6 +267,19 @@
       message.textContent = "Drawing Durga Devi...";
 
       requestAnimationFrame(drawFrame);
+    }
+
+    function startDrawingWithMusic() {
+      startDrawing();
+      document.getElementById("drawButton").textContent = "Draw Again + Music";
+      song.play().then(() => {
+        autoplayBlocked = false;
+      }).catch(() => {
+        autoplayBlocked = true;
+        document.getElementById("drawButton").textContent = "Enable Music";
+        message.textContent =
+          "Drawing started. Tap Play on the song controls if music is blocked.";
+      });
     }
 
     function drawFrame() {
