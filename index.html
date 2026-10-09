@@ -91,9 +91,18 @@
       outline-offset: 3px;
     }
 
-    #message {
+    .status-line {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 6px;
       color: #672525;
       margin: 4px 0;
+    }
+
+    .status-separator {
+      color: #d6a45d;
     }
 
     .credit {
@@ -104,17 +113,37 @@
       font-style: italic;
       font-weight: 700;
     }
+
+    @media (max-width: 600px) {
+      body {
+        height: auto;
+        min-height: 100dvh;
+        grid-template-rows: auto auto auto auto auto auto auto;
+        align-content: start;
+        overflow-y: auto;
+      }
+
+      canvas {
+        box-sizing: border-box;
+        max-width: calc(100vw - 20px);
+        max-height: none;
+      }
+    }
   </style>
 </head>
 
 <body>
   <h1>Happy Dussehra!</h1>
-  <p id="message">Preparing Durga drawing...</p>
+  <p class="status-line">
+    <span id="message">Preparing Durga drawing...</span>
+    <span class="status-separator" aria-hidden="true">|</span>
+    <span id="musicStatus">Music preparing...</span>
+  </p>
 
   <canvas id="drawingCanvas"></canvas>
   <p class="credit">Designed by Bhuvan</p>
-  <button id="drawButton" onclick="startDrawingWithMusic()" disabled>Preparing drawing...</button>
-  <audio id="durgaSong" controls autoplay loop preload="auto" aria-label="Durga song">
+  <button id="drawButton" onclick="toggleMusic()" disabled>Preparing drawing...</button>
+  <audio id="durgaSong" controls loop preload="auto" aria-label="Durga song">
     <source src="durga_song.mp3" type="audio/mpeg">
     Your browser does not support audio playback.
   </audio>
@@ -141,6 +170,7 @@
     const ctx = canvas.getContext("2d");
     const img = document.getElementById("sourceImage");
     const message = document.getElementById("message");
+    const musicStatus = document.getElementById("musicStatus");
     const song = document.getElementById("durgaSong");
 
     let drawingLines = [];
@@ -149,12 +179,17 @@
     let animationStarted = false;
     let autoplayBlocked = false;
 
-    song.play().catch(() => {
-      autoplayBlocked = true;
-      if (!document.getElementById("drawButton").disabled) {
-        document.getElementById("drawButton").textContent = "Enable Music";
-        message.textContent = "Autoplay was blocked. Tap Enable Music to start the song.";
-      }
+    song.addEventListener("play", () => {
+      autoplayBlocked = false;
+      musicStatus.textContent = "Music playing.";
+      document.getElementById("drawButton").textContent = "Pause Music";
+    });
+
+    song.addEventListener("pause", () => {
+      musicStatus.textContent = "Music paused.";
+      document.getElementById("drawButton").textContent = autoplayBlocked
+        ? "Enable Music"
+        : "Play Music";
     });
 
     // Wait until OpenCV.js is ready
@@ -233,11 +268,9 @@
 
         const drawButton = document.getElementById("drawButton");
         drawButton.disabled = false;
-        drawButton.textContent = autoplayBlocked ? "Enable Music" : "Draw Again + Music";
-        if (autoplayBlocked) {
-          message.textContent = "Autoplay was blocked. Tap Enable Music to start the song.";
-        }
+        drawButton.textContent = "Pause Music";
         startDrawing();
+        playSong();
       } catch (error) {
         message.textContent =
           "Could not process image. Please refresh and try again.";
@@ -264,22 +297,32 @@
       lineIndex = 0;
       pointIndex = 1;
       animationStarted = true;
-      message.textContent = "Drawing Durga Devi...";
+      message.textContent = "Drawing started...";
 
       requestAnimationFrame(drawFrame);
     }
 
-    function startDrawingWithMusic() {
-      startDrawing();
-      document.getElementById("drawButton").textContent = "Draw Again + Music";
+    function playSong() {
       song.play().then(() => {
         autoplayBlocked = false;
+        document.getElementById("drawButton").textContent = "Pause Music";
       }).catch(() => {
         autoplayBlocked = true;
         document.getElementById("drawButton").textContent = "Enable Music";
-        message.textContent =
-          "Drawing started. Tap Play on the song controls if music is blocked.";
+        musicStatus.textContent = "Autoplay blocked. Tap Enable Music to start the song.";
       });
+    }
+
+    function toggleMusic() {
+      const drawButton = document.getElementById("drawButton");
+
+      if (!song.paused) {
+        song.pause();
+        drawButton.textContent = "Play Music";
+        return;
+      }
+
+      playSong();
     }
 
     function drawFrame() {
@@ -313,6 +356,7 @@
       }
 
       if (lineIndex < drawingLines.length) {
+        message.textContent = "Drawing continues...";
         requestAnimationFrame(drawFrame);
       } else {
         message.textContent = "Drawing completed!";
