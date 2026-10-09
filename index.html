@@ -1,0 +1,224 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Durga Drawing Animation</title>
+
+  <style>
+    body {
+      margin: 0;
+      padding: 25px;
+      text-align: center;
+      font-family: Arial, sans-serif;
+      background: #fff8ed;
+      color: #672525;
+    }
+
+    h1 {
+      margin-bottom: 18px;
+    }
+
+    canvas {
+      display: block;
+      width: 70%;
+      max-width: 600px;
+      height: auto;
+      margin: 20px auto;
+      border: 2px solid #d6a45d;
+      background: #090909;
+    }
+
+    button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      background: #a52a2a;
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    #message {
+      color: #672525;
+    }
+
+    .credit {
+      margin: 12px 0 8px;
+      color: #672525;
+      font-size: 14px;
+      font-weight: 600;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>Happy Dussehra!</h1>
+  <p id="message">Preparing Durga drawing...</p>
+
+  <canvas id="drawingCanvas"></canvas>
+  <p class="credit">Designed by Bhuvan</p>
+  <button onclick="startDrawing()">Draw Again</button>
+
+  <img id="sourceImage" src="durga.jpg" hidden>
+
+  <script async src="https://docs.opencv.org/4.x/opencv.js"></script>
+
+  <script>
+    const canvas = document.getElementById("drawingCanvas");
+    const ctx = canvas.getContext("2d");
+    const img = document.getElementById("sourceImage");
+    const message = document.getElementById("message");
+
+    let drawingLines = [];
+    let lineIndex = 0;
+    let pointIndex = 1;
+    let animationStarted = false;
+
+    // Wait until OpenCV.js is ready
+    async function waitForOpenCV() {
+      while (!window.cv || !window.cv.Mat) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    }
+
+    img.onload = async function () {
+      await waitForOpenCV();
+      prepareDrawing();
+    };
+
+    img.onerror = function () {
+      message.textContent =
+        "Image not found. Check that durga.jpg is in this folder.";
+    };
+
+    async function prepareDrawing() {
+      message.textContent = "Preparing image outline...";
+
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+
+      let source, gray, blurred, edges, contours, hierarchy;
+
+      try {
+        source = cv.imread(img);
+        gray = new cv.Mat();
+        blurred = new cv.Mat();
+        edges = new cv.Mat();
+        contours = new cv.MatVector();
+        hierarchy = new cv.Mat();
+
+        cv.cvtColor(source, gray, cv.COLOR_RGBA2GRAY);
+        cv.GaussianBlur(
+          gray, blurred, new cv.Size(5, 5), 0
+        );
+        cv.Canny(blurred, edges, 60, 150);
+
+        cv.findContours(
+          edges, contours, hierarchy,
+          cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE
+        );
+
+        drawingLines = [];
+
+        for (let i = 0; i < contours.size(); i++) {
+          const contour = contours.get(i);
+
+          if (cv.arcLength(contour, false) >= 20) {
+            const points = [];
+
+            for (let j = 0; j < contour.data32S.length; j += 2) {
+              points.push({
+                x: contour.data32S[j],
+                y: contour.data32S[j + 1]
+              });
+            }
+
+            if (points.length > 1) {
+              drawingLines.push(points);
+            }
+          }
+
+          contour.delete();
+        }
+
+        // Draw contours starting from higher parts of the image
+        drawingLines.sort((a, b) => {
+          const topA = Math.min(...a.map(p => p.y));
+          const topB = Math.min(...b.map(p => p.y));
+          return topA - topB;
+        });
+
+        startDrawing();
+      } catch (error) {
+        message.textContent =
+          "Could not process image. Please refresh and try again.";
+        console.error(error);
+      } finally {
+        if (source) source.delete();
+        if (gray) gray.delete();
+        if (blurred) blurred.delete();
+        if (edges) edges.delete();
+        if (contours) contours.delete();
+        if (hierarchy) hierarchy.delete();
+      }
+    };
+
+    function startDrawing() {
+      if (drawingLines.length === 0) return;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.strokeStyle = "#f4c95d";
+      ctx.lineWidth = 1.5;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+
+      lineIndex = 0;
+      pointIndex = 1;
+      animationStarted = true;
+      message.textContent = "Drawing Durga Devi...";
+
+      requestAnimationFrame(drawFrame);
+    }
+
+    function drawFrame() {
+      if (!animationStarted) return;
+
+      let pointsDrawn = 0;
+
+      // Larger number means faster drawing
+      while (pointsDrawn < 15 && lineIndex < drawingLines.length) {
+        const points = drawingLines[lineIndex];
+
+        if (pointIndex === 1) {
+          ctx.beginPath();
+          ctx.moveTo(points[0].x, points[0].y);
+        }
+
+        const end = Math.min(pointIndex + 1, points.length - 1);
+
+        for (let i = pointIndex; i <= end; i++) {
+          ctx.lineTo(points[i].x, points[i].y);
+        }
+
+        ctx.stroke();
+        pointIndex = end + 1;
+        pointsDrawn++;
+
+        if (pointIndex >= points.length) {
+          lineIndex++;
+          pointIndex = 1;
+        }
+      }
+
+      if (lineIndex < drawingLines.length) {
+        requestAnimationFrame(drawFrame);
+      } else {
+        message.textContent = "Drawing completed!";
+        animationStarted = false;
+      }
+    }
+  </script>
+</body>
+</html>
